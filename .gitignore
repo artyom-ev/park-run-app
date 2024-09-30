@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Ignoring virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Poetry
+.poetry/
+*.lock
+
+# IDE
+.idea/
+.vscode/
+
+# Дистрибутивы и сборки
+build/
+dist/
+*.egg-info/
+
+# Локальные базы данных
+*.sqlite3
+*.db
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Other common files
+*.DS_Store
+*.egg-info/
+*.env
