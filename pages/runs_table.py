@@ -1,18 +1,19 @@
 import pandas as pd
-from sqlalchemy import create_engine
 import streamlit as st
 
-st.set_page_config(layout='wide')
+st.set_page_config(layout='wide', initial_sidebar_state='collapsed')
 
-st.title('Данные по пробегам')
+st.title('Данные по пробегам и участникам')
 
-engine = create_engine('sqlite:///mydatabase.db')
-querie = '''
-SELECT   run, run_number, run_date, finisher, volunteer, avg_time, best_female_time, best_male_time, position, 
-name, profile_link, participant_id, clubs, finishes, volunteers, age_group, age_grade, time, achievements
-FROM runners
-'''
-df = pd.read_sql(querie, con=engine)
+# Чтение данных из CSV файлов
+df_runners = pd.read_csv('runners.csv')
 
-# Отображаем таблицу в широком режиме
-st.dataframe(df, use_container_width=True)
+# Используем st.data_editor для отображения таблицы
+st.data_editor(
+    df_runners,
+    column_config={
+        'profile_link': st.column_config.LinkColumn(),
+        'run_link': st.column_config.LinkColumn(),
+    },
+    hide_index=True
+)

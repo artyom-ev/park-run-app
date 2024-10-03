@@ -1,7 +1,9 @@
 import streamlit as st
 
 st.set_page_config(page_title='PARK🌳RUN',
-                   page_icon=':running:')
+                   page_icon=':running:',
+                   layout='centered',
+                   initial_sidebar_state='collapsed')
 
 hide_streamlit_style = """
             <style>
@@ -9,6 +11,7 @@ hide_streamlit_style = """
             footer {visibility: hidden;}
             </style>
             """
+            
 st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
 
 st.title('Домашняя страница')
@@ -22,6 +25,5 @@ st.markdown(
 - Страница с таблицей бегунов
 - Страница с таблицей организаторов
 - Парсинг тут
-- Кастомный SQL
 '''
 )

@@ -1,7 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-from sqlalchemy import create_engine
 import streamlit as st
 
 # Функция для парсинга сайта с прогрессом
@@ -182,7 +181,7 @@ def parse_website():
                     profile_link = name_tag['href'] if name_tag else '—'
                     
                     # Извлекаем уникальный номер участника из ссылки
-                    participant_id = profile_link.split('/')[-1] if profile_link else '—'
+                    participant_id = profile_link.split('/')[-1] if profile_link != '—' else '—'
 
                     # Извлекаем количество финишей и волонтёрств
                     stats_div = columns[0].find('div', class_='user-stat')
@@ -218,23 +217,20 @@ def parse_website():
                                     ])
     return orgs_data, runners_data 
 
-# Функция для сохранения данных в базу данных
-def save_to_database(df_orgs, df_runners, db_url='sqlite:///mydatabase.db'):
-    # Создаем подключение к базе данных
-    engine = create_engine(db_url)
+# Функция для сохранения данных в CSV
+def save_to_csv(df_orgs, df_runners, orgs_filename='organizers.csv', runners_filename='runners.csv'):
+    # Сохраняем данные организаторов в CSV файл
+    df_orgs.to_csv(orgs_filename, index=False)
 
-    # Сохраняем данные организаторов в таблицу 'organizers'
-    df_orgs.to_sql('organizers', con=engine, if_exists='replace', index=False)
+    # Сохраняем данные бегунов в CSV файл
+    df_runners.to_csv(runners_filename, index=False)
 
-    # Сохраняем данные бегунов в таблицу 'runners'
-    df_runners.to_sql('runners', con=engine, if_exists='replace', index=False)
-
-# Интерфейс Streamlit
+# Интерфейс 
 st.title('Добро пожаловать в Парсер!')
-st.write('Это страница парсит данные с сайта и сохраняет их в локальную базу данных.')
+st.write('Это страница парсит данные с сайта и сохраняет их в локальные CSV файлы.')
 
 # Кнопка для запуска парсинга
-if st.button('Парсить'):
+if st.button('Парсить данные'):
     # Парсим данные (функция должна возвращать два объекта)
     orgs_data, runners_data = parse_website()  # Теперь parse_website() возвращает два списка данных
 
@@ -250,8 +246,8 @@ if st.button('Парсить'):
         'position', 'name', 'profile_link', 'participant_id', 'clubs', 'finishes', 'volunteers', 'age_group', 'age_grade', 'time', 'achievements'
     ])
 
-    # Сохраняем данные в базу данных
-    save_to_database(df_orgs, df_runners)
+    # Сохраняем данные в CSV файлы
+    save_to_csv(df_orgs, df_runners)
 
     # Вывод сообщения об успешном завершении
-    st.success('Данные успешно сохранены в базу данных!')
+    st.success('Данные успешно сохранены в CSV файлы!')
