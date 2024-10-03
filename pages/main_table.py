@@ -3,7 +3,8 @@ import streamlit as st
 
 st.set_page_config(layout='wide', initial_sidebar_state='collapsed')
 
-st.title('Основная таблица по результатам и волонтёрствам участников')
+st.header('База участников 5Верст в Петергофе')
+st.markdown('Обновлено <дата время>')
 
 # Чтение данных из CSV файлов
 df_runners = pd.read_csv('runners.csv')
@@ -51,15 +52,19 @@ merged_df['number_of_helps_in_peterhof'] = merged_df['number_of_helps_in_peterho
 merged_df['min_time'] = merged_df['min_time'].dt.strftime('%H:%M:%S')
 
 # Оставляем нужные колонки
-final_df = merged_df[['participant_id', 'first_name', 'last_name', 'min_time', 
-                      'number_of_runs', 'number_of_runs_in_peterhof', 
-                      'number_of_helps', 'number_of_helps_in_peterhof', 'profile_link']]
+final_df = merged_df[['profile_link', 'last_name', 'first_name', 'min_time', 
+                      'number_of_runs', 'number_of_helps']]
 
 # Используем st.data_editor для отображения таблицы
 st.data_editor(
     final_df,
     column_config={
-        'profile_link': st.column_config.LinkColumn(),
+        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='small'),
+        'last_name': st.column_config.Column(label="Фамилия", width='medium'),     
+        'first_name': st.column_config.Column(label="Имя", width='medium'),
+        'min_time': st.column_config.Column(label="Рекорд", width='small'),
+        'number_of_runs': st.column_config.Column(label="# финишей", width='medium'),
+        'number_of_helps': st.column_config.Column(label="# волонтерств", width='medium'),
     },
     hide_index=True
 )
