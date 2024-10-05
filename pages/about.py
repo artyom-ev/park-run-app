@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
@@ -48,8 +49,13 @@ def get_last_date_from_site():
     return last_date_site
 
 # Функция для получения последней даты из БД
-def get_last_date_from_db():
-    db_url = 'sqlite:///mydatabase.db'
+def get_last_date_from_db(db_url='sqlite:///mydatabase.db'):
+    # Проверяем, существует ли файл базы данных
+    db_path = db_url.replace('sqlite:///', '')  # Извлекаем путь к файлу базы данных
+    if not os.path.exists(db_path):
+        return None  # Если базы данных нет, возвращаем None
+    
+    # Подключение к базе данных, если файл существует
     engine = create_engine(db_url)
     with engine.connect() as connection:
         query = text("SELECT MAX(run_date) FROM runners")  # Заменить run_date на реальное имя колонки с датой
@@ -58,7 +64,6 @@ def get_last_date_from_db():
 
         # Проверяем, если last_date_db не None, то преобразуем строку в дату
         if last_date_db:
-            # Преобразование строки из БД в объект date
             last_date_db = datetime.strptime(last_date_db, '%Y-%m-%d %H:%M:%S.%f').date()
         else:
             last_date_db = None
@@ -289,10 +294,6 @@ def save_to_database(df_orgs, df_runners, db_url='sqlite:///mydatabase.db'):
     # Сохраняем данные бегунов в таблицу 'runners'
     df_runners.to_sql('runners', con=engine, if_exists='replace', index=False)
 
-# Получение последней даты из БД и сайта
-last_date_db = get_last_date_from_db()
-last_date_site = get_last_date_from_site()
-
 #Парсинг
 def run_parsing():
     # Парсим данные (функция должна возвращать два объекта)
@@ -319,6 +320,10 @@ def run_parsing():
     # Сохраняем данные в базу данных
     save_to_database(df_orgs, df_runners)
 
+
+last_date_site = get_last_date_from_site()
+last_date_db = get_last_date_from_db()
+    
 st.subheader('Актуальность данных')  
 # Проверяем, если last_date_db не пустая
 if last_date_db is None:
