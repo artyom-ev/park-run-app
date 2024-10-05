@@ -27,14 +27,9 @@ page_3 = st.Page(
     title='Таблица организаторов',
     icon='💃',
 )
-page_4 = st.Page(
-    'pages/parcer.py',
-    title='Парсинг тут',
-    icon='🔎',
-)
 
 # --- NAVIGATION SETUP [WITHOUT SECTIONS] ---
-pg = st.navigation(pages=[about_page, page_0, page_1, page_2, page_3, page_4])
+pg = st.navigation(pages=[about_page, page_0, page_1, page_2, page_3])
  
 # --- RUN NAVIGATION ---
 pg.run()
