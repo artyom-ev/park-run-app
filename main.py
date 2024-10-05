@@ -32,22 +32,9 @@ page_4 = st.Page(
     title='Парсинг тут',
     icon='🔎',
 )
-page_5 = st.Page(
-    'pages/sql.py',
-    title='SQL запросы',
-    icon='💿',
-)
 
 # --- NAVIGATION SETUP [WITHOUT SECTIONS] ---
-pg = st.navigation(pages=[about_page, page_0, page_1, page_2, page_3, page_4, page_5])
-
-# # --- NAVIGATION SETUP [WITH SECTIONS]---
-# pg = st.navigation(
-#     {
-#         'Информация': [about_page],
-#         'Данные': [page_1, page_2, page_3],
-#     }
-# )
-   
+pg = st.navigation(pages=[about_page, page_0, page_1, page_2, page_3, page_4])
+ 
 # --- RUN NAVIGATION ---
 pg.run()

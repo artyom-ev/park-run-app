@@ -91,7 +91,7 @@ def parse_website():
     runners_data = []
 
     # Проходим по отфильтрованным данным
-    for index, df_row in starts_data.iterrows():  
+    for index, df_row in starts_data[:3].iterrows():  
         # Переходим на страницу забега
         run_url = df_row['run_link']
         if run_url:
@@ -243,12 +243,18 @@ if st.button('Парсить'):
         'run', 'run_number', 'run_date', 'run_link', 'finisher', 'volunteer', 'avg_time', 'best_female_time', 'best_male_time', 
         'name', 'profile_link', 'participant_id', 'finishes', 'volunteers', 'clubs', 'volunteer_role', 'first_volunteer_info'
     ])
+    df_orgs['run_date'] = pd.to_datetime(df_orgs['run_date'], dayfirst=True)
+    df_orgs['finisher'] = df_orgs['finisher'].astype('int')
+    df_orgs['volunteer'] = df_orgs['volunteer'].astype('int')
 
     # Создаем DataFrame для бегунов
     df_runners = pd.DataFrame(runners_data, columns=[
         'run', 'run_number', 'run_date', 'run_link', 'finisher', 'volunteer', 'avg_time', 'best_female_time', 'best_male_time', 
         'position', 'name', 'profile_link', 'participant_id', 'clubs', 'finishes', 'volunteers', 'age_group', 'age_grade', 'time', 'achievements'
     ])
+    df_runners['run_date'] = pd.to_datetime(df_runners['run_date'], dayfirst=True)
+    df_runners['finisher'] = df_runners['finisher'].astype('int')
+    df_runners['volunteer'] = df_runners['volunteer'].astype('int')
 
     # Сохраняем данные в базу данных
     save_to_database(df_orgs, df_runners)

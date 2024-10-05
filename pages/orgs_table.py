@@ -2,9 +2,9 @@ import pandas as pd
 from sqlalchemy import create_engine
 import streamlit as st
 
-st.set_page_config(layout='wide')
+st.set_page_config(layout='wide', initial_sidebar_state='collapsed')
 
-st.title('Данные по организаторам')
+st.title('Данные по пробегам и организаторам')
 
 engine = create_engine('sqlite:///mydatabase.db')
 querie = '''
@@ -13,5 +13,15 @@ FROM organizers
 '''
 df = pd.read_sql(querie, con=engine)
 
-# Отображаем таблицу в широком режиме
-st.dataframe(df, use_container_width=True)
+df = pd.read_sql(querie, con=engine)
+df['run_date'] = pd.to_datetime(df['run_date'])
+df['run_date'] = df['run_date'].dt.strftime('%d.%m.%Y')
+
+# Отображаем таблицу 
+st.data_editor(
+    df,
+    column_config={
+        'profile_link': st.column_config.LinkColumn(),
+    },
+    hide_index=True
+)
