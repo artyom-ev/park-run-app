@@ -91,7 +91,7 @@ def parse_website():
     runners_data = []
 
     # Проходим по отфильтрованным данным
-    for index, df_row in starts_data[:3].iterrows():  
+    for index, df_row in starts_data.iterrows():  
         # Переходим на страницу забега
         run_url = df_row['run_link']
         if run_url:
