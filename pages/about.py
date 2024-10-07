@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 import requests
+from concurrent.futures import ThreadPoolExecutor
 from bs4 import BeautifulSoup
 from sqlalchemy import create_engine, text
 from datetime import datetime
@@ -15,12 +16,14 @@ image_path = 'logo.jpg'  # Замените на путь к вашему изо
 # Вставка изображения
 st.image(image_path, caption='', width=250)
 
-# Скрытие футера
+# Скрытие футера и меню
 hide_streamlit_style = """
-    <style>
-    footer {visibility: hidden;}
-    </style>
-    """
+            <style>
+            MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            </style>
+            """
+            
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Заголовок
@@ -69,26 +72,176 @@ def get_last_date_from_db(db_url='sqlite:///mydatabase.db'):
             last_date_db = None
     return last_date_db
 
-# Функция для парсинга сайта с прогрессом
-def parse_website():
-    # URL с таблицей результатов
-    url = 'https://5verst.ru/results/latest/'
+# Функция для парсинга страницы с информацией по забегам локации
+def parse_run_page(run_link):
+    try:
+        response = requests.get(run_link)
+        if response.status_code != 200:
+            return None
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        run_table = soup.find('table')
 
-    # Получаем HTML-страницу
+        run_data = []
+        if run_table:
+            for run_row in run_table.find_all('tr')[1:]:
+                run_cells = run_row.find_all('td')
+                if len(run_cells) >= 4:
+                    # Извлекаем данные по каждому забегу
+                    number = run_cells[0].get_text(strip=True)
+                    date_cell = run_cells[1].get_text(strip=True)
+                    link = run_cells[1].find('a')['href'] if run_cells[1].find('a') else None
+                    finishers = run_cells[2].get_text(strip=True)
+                    volunteers = run_cells[3].get_text(strip=True)
+                    avg_time = run_cells[4].get_text(strip=True)
+                    best_female_time = run_cells[5].get_text(strip=True)
+                    best_male_time = run_cells[6].get_text(strip=True)
+                    run_data.append([number, date_cell, link, finishers, volunteers, avg_time, best_female_time, best_male_time])
+        return run_data
+    except Exception as e:
+        print(f"Ошибка при парсинге страницы {run_link}: {e}")
+        return None
+
+# Функция для парсинга таблиц участников и волонтёров для конкретного забега
+def parse_participant_and_volunteer_tables(run_link):
+    try:
+        response = requests.get(run_link)
+        if response.status_code != 200:
+            return None, None
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        all_tables = soup.find_all('table')
+
+        if len(all_tables) < 2:
+            return None, None  # Недостаточно таблиц
+
+        # Первая таблица – участники
+        participants_data = []
+        participant_table = all_tables[0]
+        for row in participant_table.find_all('tr')[1:]:
+            cells = row.find_all('td')
+            if len(cells) >= 4:
+                position = cells[0].get_text(strip=True)
+                name_tag = cells[1].find('a')
+                name = name_tag.get_text(strip=True) if name_tag else '—'
+                profile_link = name_tag['href'] if name_tag else '—'
+                participant_id = profile_link.split('/')[-1] if profile_link != '—' else '—'
+                # Количество финишей и волонтёрств
+                stats_div = cells[1].find('div', class_='user-stat')
+                finishes = '—'
+                volunteers = '—'
+                if stats_div:
+                    stats_spans = stats_div.find_all('span')
+                    finishes = stats_spans[0].get_text(strip=True).split(' ')[0] if len(stats_spans) > 0 else '—'
+                    volunteers = stats_spans[1].get_text(strip=True).split(' ')[0] if len(stats_spans) > 1 else '—'
+
+                # Клубы
+                club_tags = cells[1].find_all('span', class_='club-icon')
+                clubs = ', '.join([club['title'] for club in club_tags]) if club_tags else '—'
+
+                # Возрастная группа и Age Grade
+                age_group = cells[2].get_text(strip=True).split(' ')[0] if cells[2] else '—'
+                age_grade_tag = cells[2].find('div', class_='age_grade')
+                age_grade = age_grade_tag.get_text(strip=True) if age_grade_tag else '—'
+
+                # Время и достижения
+                time = cells[3].get_text(strip=True) if cells[3] else '—'
+                achievements = []
+                achievements_div = cells[3].find('div', class_='table-achievments')
+                if achievements_div:
+                    achievement_icons = achievements_div.find_all('span', class_='results_icon')
+                    for icon in achievement_icons:
+                        achievements.append(icon['title'])  # Описание достижения
+                participants_data.append([position, name, profile_link, participant_id, clubs, finishes, volunteers, age_group, age_grade, time, ', '.join(achievements)])
+
+        # Вторая таблица – волонтёры
+        volunteers_data = []
+        volunteer_table = all_tables[1]
+        for row in volunteer_table.find_all('tr')[1:]:
+            columns = row.find_all('td')
+            if len(columns) > 1:
+                name_tag = columns[0].find('a')
+                name = name_tag.get_text(strip=True) if name_tag else '—'
+                profile_link = name_tag['href'] if name_tag else '—'
+                participant_id = profile_link.split('/')[-1] if profile_link != '—' else '—'
+                                    # Извлекаем количество финишей и волонтёрств
+                stats_div = columns[0].find('div', class_='user-stat')
+                finishes = '—'
+                volunteers = '—'
+                if stats_div:
+                    stats_spans = stats_div.find_all('span')
+                    finishes = stats_spans[0].get_text(strip=True).split(' ')[0] if len(stats_spans) > 0 else '—'
+                    volunteers = stats_spans[1].get_text(strip=True).split(' ')[0] if len(stats_spans) > 1 else '—'
+
+                # Извлекаем клубы (все клубы)
+                club_tags = columns[0].find_all('span', class_='club-icon')
+                clubs = ', '.join([club['title'] for club in club_tags]) if club_tags else '—'
+
+                # Вторая колонка: роль волонтёра и информация о первом волонтёрстве
+                volunteer_role_info = columns[1].find('div', class_='volunteer__role')
+                if volunteer_role_info:
+                    # Извлекаем атрибут title для информации о первом волонтёрстве
+                    first_volunteer_tag = volunteer_role_info.find('span', class_='results_icon')
+                    first_volunteer_info = first_volunteer_tag['title'] if first_volunteer_tag else '—'
+
+                    # Извлекаем текст для роли волонтёра
+                    role_tag = volunteer_role_info.find_all('span')
+                    volunteer_role = role_tag[-1].get_text(strip=True) if role_tag else '—'
+                else:
+                    first_volunteer_info = '—'
+                    volunteer_role = '—'
+                volunteers_data.append([name, profile_link, participant_id, finishes, volunteers, clubs, volunteer_role, first_volunteer_info])
+
+        return participants_data, volunteers_data
+    except Exception as e:
+        print(f"Ошибка при парсинге таблиц участников и волонтёров: {e}")
+        return None, None
+
+# Многопоточная обработка данных для забегов и участников
+def process_run_data(filtered_starts_latest):
+    orgs_data = []
+    runners_data = []
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(parse_run_page, row['run_link']) for _, row in filtered_starts_latest.iterrows()]
+
+        for future, row in zip(futures, filtered_starts_latest.itertuples()):
+            run_data = future.result()
+            if run_data:
+                for item in run_data:
+                    # Переход на страницу конкретного забега
+                    run_link = item[2]
+                    participants, volunteers = parse_participant_and_volunteer_tables(run_link)
+
+                    if participants:
+                        for p in participants:
+                            # Добавляем данные участника
+                            runners_data.append([
+                                row.run, item[0], item[1], run_link, item[3], item[4], item[5], item[6], item[7]
+                            ] + p)
+
+                    if volunteers:
+                        for v in volunteers:
+                            # Добавляем данные волонтёра
+                            orgs_data.append([
+                                row.run, item[0], item[1], run_link, item[3], item[4], item[5], item[6], item[7]
+                            ] + v)
+
+    return orgs_data, runners_data
+
+# Функция для парсинга основной таблицы забегов
+def parse_main_table(url):
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
 
     # Находим таблицу с результатами
-    table = soup.find('table')  
+    table = soup.find('table')
 
     # Список для хранения данных
     starts_latest = []
-
-    # Проходим по каждой строке таблицы
     for row in table.find_all('tr')[1:]:
         cells = row.find_all('td')
         if len(cells) > 0:
-            # Извлекаем данные из строк таблицы
             number_cell = cells[0]
             run = number_cell.text.strip().split(' #')[0]  # Старт
             link = number_cell.find('a')['href'] if number_cell.find('a') else None
@@ -98,193 +251,30 @@ def parse_website():
             avg_time = cells[4].text.strip()  # Среднее время
             best_female_time = cells[5].text.strip()  # Лучшее время "Ж"
             best_male_time = cells[6].text.strip()  # Лучшее время "М"
-
-            # Добавляем строку с данными
             starts_latest.append([run, date, link, finishers, volunteers, avg_time, best_female_time, best_male_time])
 
-    # Создаем DataFrame из данных
-    starts_latest = pd.DataFrame(starts_latest, columns=['run', 'run_date', 'run_link', 'finishers', 'volunteers', 'avg_time', 'best_female_time', 'best_male_time'])
+    return pd.DataFrame(starts_latest, columns=[
+        'run', 'run_date', 'run_link', 'finishers', 'volunteers', 'avg_time', 'best_female_time', 'best_male_time'
+    ])
 
-    # Список забегов, с которыми будем работать
-    target_runs = ['Петергоф Александрийский']
+# Главная функция для парсинга сайта
+def parse_website():
+    url = 'https://5verst.ru/results/latest/'
+    
+    # Парсим основную таблицу с последними забегами
+    starts_latest_df = parse_main_table(url)
 
-    # Фильтруем DataFrame по списку забегов
-    filtered_starts_latest = starts_latest[starts_latest['run'].isin(target_runs)]
+    # Фильтрация забегов по нужным названиям
+    target_runs = ['Петергоф Александрийский']  # Замените по необходимости
+    filtered_starts_latest = starts_latest_df[starts_latest_df['run'].isin(target_runs)]
 
-    # Создаем новый список для хранения данных по локациям
-    starts_data = []
-
-    # Проходим по отфильтрованным данным
-    for index, row in filtered_starts_latest.iterrows():
-        # Переходим на страницу забега
-        run_url = row['run_link']
-        if run_url:
-            run_response = requests.get(run_url)
-            run_soup = BeautifulSoup(run_response.text, 'html.parser')
-
-            # Парсим таблицу результатов забега
-            run_table = run_soup.find('table')
-            
-            run_data = []
-
-            # Проходим по каждой строке таблицы
-            for run_row in run_table.find_all('tr')[1:]:
-                run_cells = run_row.find_all('td')
-                if len(run_cells) > 0:
-                    number = run_cells[0].text.strip()  # Номер забега
-                    date_cell = run_cells[1]
-                    link = date_cell.find('a')['href'] if date_cell.find('a') else None
-                    date = date_cell.text.strip()  # Дата забега
-
-                    finishers = run_cells[2].text.strip()  # Число финишёров
-                    volunteers = run_cells[3].text.strip()  # Число волонтёров
-                    avg_time = run_cells[4].text.strip()  # Среднее время
-                    best_female_time = run_cells[5].text.strip()  # Лучшее время "Ж"
-                    best_male_time = run_cells[6].text.strip()  # Лучшее время "М"
-
-                    # Добавляем строку с данными
-                    run_data.append([number, date, link, finishers, volunteers, avg_time, best_female_time, best_male_time])
-
-            # Добавляем название забега из списка и данные по каждому забегу
-            for item in run_data:
-                starts_data.append([row['run']] + item)  # Название забега + остальные данные
-
-    # Создаем итоговый DataFrame
-    starts_data = pd.DataFrame(starts_data, columns=['run', 'run_number', 'run_date', 'run_link', 'finishers', 'volunteers', 'avg_time', 'best_female_time', 'best_male_time'])
-
-    orgs_data = []
-    runners_data = []
-
-    # Проходим по отфильтрованным данным
-    for index, df_row in starts_data.iterrows():  
-        # Переходим на страницу забега
-        run_url = df_row['run_link']
-        if run_url:
-            # Выполняем GET-запрос для получения страницы
-            response = requests.get(run_url)
-            
-            # Проверяем, что запрос успешен
-            if response.status_code != 200:
-                print(f"Ошибка при загрузке страницы: {response.status_code}")
-                continue
-
-            soup = BeautifulSoup(response.text, 'html.parser')
-
-            # Находим все таблицы на странице
-            all_tables = soup.find_all('table')
-
-            # Проверяем, что на странице есть как минимум две таблицы
-            if len(all_tables) < 2:
-                print('Не удалось найти вторую таблицу на странице')
-                continue
-            
-            # Находим таблицу с результатами участников
-            run_table = all_tables[0]
-            if run_table:
-                # Проходим по каждой строке таблицы с участниками
-                for run_row in run_table.find_all('tr')[1:]:
-                    run_cells = run_row.find_all('td')
-                    if len(run_cells) >= 4:
-                        # Парсим данные о каждом участнике
-                        position = run_cells[0].get_text(strip=True) if run_cells[0] else '—'
-
-                        # Имя и ссылка на профиль
-                        name_tag = run_cells[1].find('a')
-                        name = name_tag.get_text(strip=True) if name_tag else '—'
-                        profile_link = name_tag['href'] if name_tag else '—'
-
-                        # Уникальный номер участника
-                        participant_id = profile_link.split('/')[-1] if profile_link != '—' else '—'
-
-                        # Количество финишей и волонтёрств
-                        stats_div = run_cells[1].find('div', class_='user-stat')
-                        finishes = '—'
-                        volunteers = '—'
-                        if stats_div:
-                            stats_spans = stats_div.find_all('span')
-                            finishes = stats_spans[0].get_text(strip=True).split(' ')[0] if len(stats_spans) > 0 else '—'
-                            volunteers = stats_spans[1].get_text(strip=True).split(' ')[0] if len(stats_spans) > 1 else '—'
-
-                        # Клубы
-                        club_tags = run_cells[1].find_all('span', class_='club-icon')
-                        clubs = ', '.join([club['title'] for club in club_tags]) if club_tags else '—'
-
-                        # Возрастная группа и Age Grade
-                        age_group = run_cells[2].get_text(strip=True).split(' ')[0] if run_cells[2] else '—'
-                        age_grade_tag = run_cells[2].find('div', class_='age_grade')
-                        age_grade = age_grade_tag.get_text(strip=True) if age_grade_tag else '—'
-
-                        # Время и достижения
-                        time = run_cells[3].get_text(strip=True) if run_cells[3] else '—'
-                        achievements = []
-                        achievements_div = run_cells[3].find('div', class_='table-achievments')
-                        if achievements_div:
-                            achievement_icons = achievements_div.find_all('span', class_='results_icon')
-                            for icon in achievement_icons:
-                                achievements.append(icon['title'])  # Описание достижения
-
-                        # Добавляем строку с данными в итоговый список
-                        runners_data.append([
-                            df_row['run'], df_row['run_number'], df_row['run_date'], df_row['run_link'], df_row['finishers'], 
-                            df_row['volunteers'], df_row['avg_time'], df_row['best_female_time'], df_row['best_male_time'], 
-                            position, name, profile_link, participant_id, clubs, finishes, volunteers, age_group, age_grade, time, ', '.join(achievements)
-                        ])
-
-            # Получаем вторую таблицу 
-            orgs_table = all_tables[1]
-
-            # Находим все строки таблицы
-            table_rows = orgs_table.find_all('tr')
-
-            # Проходим по каждой строке таблицы
-            for html_row in table_rows:  
-                columns = html_row.find_all('td')
-
-                if len(columns) > 1:  # Проверяем, что в строке как минимум 2 колонки
-                    # Первая колонка: имя, ссылка на профиль, количество финишей и волонтёрств
-                    name_tag = columns[0].find('a')
-                    name = name_tag.get_text(strip=True) if name_tag else '—'
-                    profile_link = name_tag['href'] if name_tag else '—'
-                    
-                    # Извлекаем уникальный номер участника из ссылки
-                    participant_id = profile_link.split('/')[-1] if profile_link else '—'
-
-                    # Извлекаем количество финишей и волонтёрств
-                    stats_div = columns[0].find('div', class_='user-stat')
-                    finishes = '—'
-                    volunteers = '—'
-                    if stats_div:
-                        stats_spans = stats_div.find_all('span')
-                        finishes = stats_spans[0].get_text(strip=True).split(' ')[0] if len(stats_spans) > 0 else '—'
-                        volunteers = stats_spans[1].get_text(strip=True).split(' ')[0] if len(stats_spans) > 1 else '—'
-
-                    # Извлекаем клубы (все клубы)
-                    club_tags = columns[0].find_all('span', class_='club-icon')
-                    clubs = ', '.join([club['title'] for club in club_tags]) if club_tags else '—'
-
-                    # Вторая колонка: роль волонтёра и информация о первом волонтёрстве
-                    volunteer_role_info = columns[1].find('div', class_='volunteer__role')
-                    if volunteer_role_info:
-                        # Извлекаем атрибут title для информации о первом волонтёрстве
-                        first_volunteer_tag = volunteer_role_info.find('span', class_='results_icon')
-                        first_volunteer_info = first_volunteer_tag['title'] if first_volunteer_tag else '—'
-
-                        # Извлекаем текст для роли волонтёра
-                        role_tag = volunteer_role_info.find_all('span')
-                        volunteer_role = role_tag[-1].get_text(strip=True) if role_tag else '—'
-                    else:
-                        first_volunteer_info = '—'
-                        volunteer_role = '—'
-
-                    # Добавляем собранные данные в список
-                    orgs_data.append([df_row['run'], df_row['run_number'], df_row['run_date'], df_row['run_link'], df_row['finishers'], 
-                                df_row['volunteers'], df_row['avg_time'], df_row['best_female_time'], df_row['best_male_time'],
-                                    name, profile_link, participant_id, finishes, volunteers, clubs, volunteer_role, first_volunteer_info
-                                    ])
-    return orgs_data, runners_data 
+    # Обработка данных забегов и участников
+    orgs_data, runners_data = process_run_data(filtered_starts_latest)
+    
+    return orgs_data, runners_data
 
 # Функция для сохранения данных в базу данных
-def save_to_database(df_orgs, df_runners, db_url='sqlite:///mydatabase.db'):
+def save_to_database(df_orgs, df_runners, df_stats, db_url='sqlite:///mydatabase.db'):
     # Создаем подключение к базе данных
     engine = create_engine(db_url)
 
@@ -293,6 +283,9 @@ def save_to_database(df_orgs, df_runners, db_url='sqlite:///mydatabase.db'):
 
     # Сохраняем данные бегунов в таблицу 'runners'
     df_runners.to_sql('runners', con=engine, if_exists='replace', index=False)
+    
+    # Сохраняем данные бегунов в таблицу 'runners'
+    df_stats.to_sql('users', con=engine, if_exists='replace', index=False)
 
 #Парсинг
 def run_parsing():
@@ -316,9 +309,66 @@ def run_parsing():
     df_runners['run_date'] = pd.to_datetime(df_runners['run_date'], dayfirst=True)
     df_runners['finisher'] = df_runners['finisher'].astype('int')
     df_runners['volunteer'] = df_runners['volunteer'].astype('int')
+    
+    stats_data = []
+    
+    for url in df_runners['profile_link'].unique():
+        if 'https://5verst.ru/userstats/' in url:
+            response = requests.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            # Извлекаем имя и фамилию, используя first_name и last_name
+            # Получаем id участника из df_runners по текущему url
+            row = df_runners[df_runners['profile_link'] == url].iloc[0]  # Берем первую строку с соответствующей ссылкой
+            first_name = row['name'].split()[0]
+            last_name = row['name'].split()[1]
+            participant_id = row['participant_id']
+            profile_link = row['profile_link']
+
+            # Шаг 2: Парсим информацию из элемента с финишами, волонтёрствами и клубами
+            stats_div = soup.find('div', class_='grid grid-cols-2 gap-px bg-black/[0.05]')
+
+            # Всего финишей
+            finishes = stats_div.find_all('div', class_='bg-white p-4')[0].find('span', class_='text-3xl font-semibold tracking-tight').text.strip()
+
+            # Всего волонтёрств
+            volunteers = stats_div.find_all('div', class_='bg-white p-4')[1].find('span', class_='text-3xl font-semibold tracking-tight').text.strip()
+
+            # Лучшее время и ссылка
+            best_time = stats_div.find_all('div', class_='bg-white p-4')[2].find('span', class_='text-3xl font-semibold tracking-tight').text.strip()
+            best_time_link = stats_div.find_all('div', class_='bg-white p-4')[2].find('a', class_='user-info-park-link')['href']
+
+            # Клубы (картинки с названиями)
+            clubs = stats_div.find_all('div', class_='bg-white p-4')[3].find_all('span', class_='club-icon')
+            clubs_titles = ', '.join([club['title'] for club in clubs])
+
+            # Шаг 3: Находим все таблицы на странице
+            tables = soup.find_all('table')
+
+            # Шаг 4: Подсчитываем количество финишей с 'Петергоф Александрийский'
+            peterhof_finishes_count = 0
+            for row in tables[0].find_all('tr')[1:]:  # Пропускаем заголовок таблицы
+                event = row.find_all('td')[1].text.strip()  # Получаем колонку 'Мероприятие'
+                if 'Петергоф Александрийский' in event:
+                    peterhof_finishes_count += 1
+
+            # Шаг 5: Подсчитываем количество волонтёрств с 'Петергоф Александрийский'
+            peterhof_volunteers_count = 0
+            for row in tables[1].find_all('tr')[1:]:  # Пропускаем заголовок таблицы
+                event = row.find_all('td')[1].text.strip()  # Получаем колонку 'Мероприятие'
+                if 'Петергоф Александрийский' in event:
+                    peterhof_volunteers_count += 1
+            
+            stats_data.append([participant_id, profile_link, first_name, last_name, best_time, finishes, 
+                            peterhof_finishes_count, volunteers, peterhof_volunteers_count, clubs_titles, best_time_link])
+    
+    df_stats = pd.DataFrame(stats_data, columns=[
+        'participant_id', 'profile_link', 'first_name', 'last_name', 'best_time', 'finishes', 
+        'peterhof_finishes_count', 'volunteers', 'peterhof_volunteers_count', 'clubs', 'best_time_link'
+    ])
 
     # Сохраняем данные в базу данных
-    save_to_database(df_orgs, df_runners)
+    save_to_database(df_orgs, df_runners, df_stats)
 
 
 last_date_site = get_last_date_from_site()
