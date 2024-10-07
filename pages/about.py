@@ -6,6 +6,8 @@ from bs4 import BeautifulSoup
 from sqlalchemy import create_engine, text
 from datetime import datetime
 import pandas as pd  
+import aiohttp
+import asyncio
 
 # Конфигурация страницы
 st.set_page_config(page_title='PARK🌳RUN', page_icon=':running:')
@@ -287,10 +289,46 @@ def save_to_database(df_orgs, df_runners, df_stats, db_url='sqlite:///mydatabase
     # Сохраняем данные бегунов в таблицу 'runners'
     df_stats.to_sql('users', con=engine, if_exists='replace', index=False)
 
-#Парсинг
-def run_parsing():
-    # Парсим данные (функция должна возвращать два объекта)
-    orgs_data, runners_data = parse_website()  
+async def fetch_profile_data(session, url, df_runners):
+    async with session.get(url) as response:
+        html = await response.text()
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        # Парсим данные как и раньше
+        row = df_runners[df_runners['profile_link'] == url].iloc[0]  
+        first_name = row['name'].split()[0]
+        last_name = row['name'].split()[1]
+        participant_id = row['participant_id']
+        profile_link = row['profile_link']
+
+        stats_div = soup.find('div', class_='grid grid-cols-2 gap-px bg-black/[0.05]')
+        finishes = stats_div.find_all('div', class_='bg-white p-4')[0].find('span', class_='text-3xl font-semibold tracking-tight').text.strip()
+        volunteers = stats_div.find_all('div', class_='bg-white p-4')[1].find('span', class_='text-3xl font-semibold tracking-tight').text.strip()
+        best_time = stats_div.find_all('div', class_='bg-white p-4')[2].find('span', class_='text-3xl font-semibold tracking-tight').text.strip()
+        best_time_link = stats_div.find_all('div', class_='bg-white p-4')[2].find('a', class_='user-info-park-link')['href']
+
+        clubs = stats_div.find_all('div', class_='bg-white p-4')[3].find_all('span', class_='club-icon')
+        clubs_titles = ', '.join([club['title'] for club in clubs])
+
+        tables = soup.find_all('table')
+        peterhof_finishes_count = sum(1 for row in tables[0].find_all('tr')[1:] if 'Петергоф Александрийский' in row.find_all('td')[1].text.strip())
+        peterhof_volunteers_count = sum(1 for row in tables[1].find_all('tr')[1:] if 'Петергоф Александрийский' in row.find_all('td')[1].text.strip())
+        
+        return [participant_id, profile_link, first_name, last_name, best_time, finishes, 
+                peterhof_finishes_count, volunteers, peterhof_volunteers_count, clubs_titles, best_time_link]
+
+async def gather_profiles_data(urls, df_runners):
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for url in urls:
+            if 'https://5verst.ru/userstats/' in url:
+                task = fetch_profile_data(session, url, df_runners)
+                tasks.append(task)
+        return await asyncio.gather(*tasks)
+
+# Основная функция для запуска
+def run_parsing_async():
+    orgs_data, runners_data = parse_website()
 
     # Создаем DataFrame для организаторов
     df_orgs = pd.DataFrame(orgs_data, columns=[
@@ -309,65 +347,17 @@ def run_parsing():
     df_runners['run_date'] = pd.to_datetime(df_runners['run_date'], dayfirst=True)
     df_runners['finisher'] = df_runners['finisher'].astype('int')
     df_runners['volunteer'] = df_runners['volunteer'].astype('int')
-    
-    stats_data = []
-    
-    for url in df_runners['profile_link'].unique():
-        if 'https://5verst.ru/userstats/' in url:
-            response = requests.get(url)
-            soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Извлекаем имя и фамилию, используя first_name и last_name
-            # Получаем id участника из df_runners по текущему url
-            row = df_runners[df_runners['profile_link'] == url].iloc[0]  # Берем первую строку с соответствующей ссылкой
-            first_name = row['name'].split()[0]
-            last_name = row['name'].split()[1]
-            participant_id = row['participant_id']
-            profile_link = row['profile_link']
+    urls = df_runners['profile_link'].unique()
 
-            # Шаг 2: Парсим информацию из элемента с финишами, волонтёрствами и клубами
-            stats_div = soup.find('div', class_='grid grid-cols-2 gap-px bg-black/[0.05]')
+    # Запуск асинхронного парсинга
+    stats_data = asyncio.run(gather_profiles_data(urls, df_runners))
 
-            # Всего финишей
-            finishes = stats_div.find_all('div', class_='bg-white p-4')[0].find('span', class_='text-3xl font-semibold tracking-tight').text.strip()
-
-            # Всего волонтёрств
-            volunteers = stats_div.find_all('div', class_='bg-white p-4')[1].find('span', class_='text-3xl font-semibold tracking-tight').text.strip()
-
-            # Лучшее время и ссылка
-            best_time = stats_div.find_all('div', class_='bg-white p-4')[2].find('span', class_='text-3xl font-semibold tracking-tight').text.strip()
-            best_time_link = stats_div.find_all('div', class_='bg-white p-4')[2].find('a', class_='user-info-park-link')['href']
-
-            # Клубы (картинки с названиями)
-            clubs = stats_div.find_all('div', class_='bg-white p-4')[3].find_all('span', class_='club-icon')
-            clubs_titles = ', '.join([club['title'] for club in clubs])
-
-            # Шаг 3: Находим все таблицы на странице
-            tables = soup.find_all('table')
-
-            # Шаг 4: Подсчитываем количество финишей с 'Петергоф Александрийский'
-            peterhof_finishes_count = 0
-            for row in tables[0].find_all('tr')[1:]:  # Пропускаем заголовок таблицы
-                event = row.find_all('td')[1].text.strip()  # Получаем колонку 'Мероприятие'
-                if 'Петергоф Александрийский' in event:
-                    peterhof_finishes_count += 1
-
-            # Шаг 5: Подсчитываем количество волонтёрств с 'Петергоф Александрийский'
-            peterhof_volunteers_count = 0
-            for row in tables[1].find_all('tr')[1:]:  # Пропускаем заголовок таблицы
-                event = row.find_all('td')[1].text.strip()  # Получаем колонку 'Мероприятие'
-                if 'Петергоф Александрийский' in event:
-                    peterhof_volunteers_count += 1
-            
-            stats_data.append([participant_id, profile_link, first_name, last_name, best_time, finishes, 
-                            peterhof_finishes_count, volunteers, peterhof_volunteers_count, clubs_titles, best_time_link])
-    
     df_stats = pd.DataFrame(stats_data, columns=[
         'participant_id', 'profile_link', 'first_name', 'last_name', 'best_time', 'finishes', 
         'peterhof_finishes_count', 'volunteers', 'peterhof_volunteers_count', 'clubs', 'best_time_link'
     ])
 
-    # Сохраняем данные в базу данных
     save_to_database(df_orgs, df_runners, df_stats)
 
 
@@ -380,7 +370,7 @@ if last_date_db is None:
     st.write('Данных в базе нет!')
     if st.button('Обновить данные'):
         st.write('Начинаем парсинг данных...')
-        run_parsing()
+        run_parsing_async()
         st.success('Данные успешно сохранены в базу данных!')
 else:
     # Сравнение дат
@@ -389,7 +379,7 @@ else:
         
         if st.button('Обновить данные'):
             st.write('Начинаем парсинг данных...')
-            run_parsing()
+            run_parsing_async()
             st.success('Данные успешно сохранены в базу данных!')
     else:
         st.markdown(f'''Данные актуальны 👍  
