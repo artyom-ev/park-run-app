@@ -1,5 +1,5 @@
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 import streamlit as st
 
 st.set_page_config(layout='wide', initial_sidebar_state='collapsed')
@@ -7,12 +7,17 @@ st.set_page_config(layout='wide', initial_sidebar_state='collapsed')
 st.header('База участников 5Верст в Петергофе')
 
 engine = create_engine('sqlite:///mydatabase.db')
+    
 querie = '''
 SELECT profile_link, first_name, last_name, best_time, finishes, 
         peterhof_finishes_count, volunteers, peterhof_volunteers_count, clubs
 FROM users
 '''
 df = pd.read_sql(querie, con=engine)
+
+st.markdown(f'''
+            Уникальных участников в таблице {len(df)}  
+            ''')
 
 # Отображаем таблицу 
 st.data_editor(

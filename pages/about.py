@@ -289,33 +289,55 @@ def save_to_database(df_orgs, df_runners, df_stats, db_url='sqlite:///mydatabase
     # Сохраняем данные бегунов в таблицу 'runners'
     df_stats.to_sql('users', con=engine, if_exists='replace', index=False)
 
+# Функция для получения данных профиля
 async def fetch_profile_data(session, url, df_runners):
-    async with session.get(url) as response:
-        html = await response.text()
-        soup = BeautifulSoup(html, 'html.parser')
-        
-        # Парсим данные как и раньше
-        row = df_runners[df_runners['profile_link'] == url].iloc[0]  
-        first_name = row['name'].split()[0]
-        last_name = row['name'].split()[1]
-        participant_id = row['participant_id']
-        profile_link = row['profile_link']
+    try:
+        async with session.get(url, timeout=1000) as response:  
+            if response.status != 200:
+                print(f"Не удалось получить данные для URL: {url}, статус: {response.status}")
+                return None
 
-        stats_div = soup.find('div', class_='grid grid-cols-2 gap-px bg-black/[0.05]')
-        finishes = stats_div.find_all('div', class_='bg-white p-4')[0].find('span', class_='text-3xl font-semibold tracking-tight').text.strip()
-        volunteers = stats_div.find_all('div', class_='bg-white p-4')[1].find('span', class_='text-3xl font-semibold tracking-tight').text.strip()
-        best_time = stats_div.find_all('div', class_='bg-white p-4')[2].find('span', class_='text-3xl font-semibold tracking-tight').text.strip()
-        best_time_link = stats_div.find_all('div', class_='bg-white p-4')[2].find('a', class_='user-info-park-link')['href']
+            html = await response.text()
+            soup = BeautifulSoup(html, 'html.parser')
 
-        clubs = stats_div.find_all('div', class_='bg-white p-4')[3].find_all('span', class_='club-icon')
-        clubs_titles = ', '.join([club['title'] for club in clubs])
+            # Парсим данные профиля
+            row = df_runners[df_runners['profile_link'] == url].iloc[0]
+            first_name = row['name'].split()[0]
+            last_name = row['name'].split()[1]
+            participant_id = row['participant_id']
+            profile_link = row['profile_link']
 
-        tables = soup.find_all('table')
-        peterhof_finishes_count = sum(1 for row in tables[0].find_all('tr')[1:] if 'Петергоф Александрийский' in row.find_all('td')[1].text.strip())
-        peterhof_volunteers_count = sum(1 for row in tables[1].find_all('tr')[1:] if 'Петергоф Александрийский' in row.find_all('td')[1].text.strip())
-        
-        return [participant_id, profile_link, first_name, last_name, best_time, finishes, 
-                peterhof_finishes_count, volunteers, peterhof_volunteers_count, clubs_titles, best_time_link]
+            # Найдем div с нужной структурой
+            stats_div = soup.find('div', class_='grid grid-cols-2 gap-px bg-black/[0.05]')
+            if stats_div:
+                stats_items = stats_div.find_all('div', class_='bg-white p-4')
+
+                finishes = stats_items[0].find('span', class_='text-3xl font-semibold tracking-tight').text.strip() if len(stats_items) > 0 else 'N/A'
+                volunteers = stats_items[1].find('span', class_='text-3xl font-semibold tracking-tight').text.strip() if len(stats_items) > 1 else 'N/A'
+                best_time = stats_items[2].find('span', class_='text-3xl font-semibold tracking-tight').text.strip() if len(stats_items) > 2 else 'N/A'
+                best_time_link = stats_items[2].find('a', class_='user-info-park-link')['href'] if len(stats_items) > 2 and stats_items[2].find('a', class_='user-info-park-link') else 'N/A'
+
+                clubs = stats_items[3].find_all('span', class_='club-icon') if len(stats_items) > 3 else []
+                clubs_titles = ', '.join([club['title'] for club in clubs])
+            else:
+                finishes = volunteers = best_time = best_time_link = 'N/A'
+                clubs_titles = ''
+
+            tables = soup.find_all('table')
+            if tables:
+                peterhof_finishes_count = sum(1 for row in tables[0].find_all('tr')[1:] if 'Петергоф Александрийский' in row.find_all('td')[1].text.strip()) if len(tables) > 0 else 0
+                peterhof_volunteers_count = sum(1 for row in tables[1].find_all('tr')[1:] if 'Петергоф Александрийский' in row.find_all('td')[1].text.strip()) if len(tables) > 1 else 0
+            else:
+                peterhof_finishes_count = peterhof_volunteers_count = 0
+
+            return [participant_id, profile_link, first_name, last_name, best_time, finishes, 
+                    peterhof_finishes_count, volunteers, peterhof_volunteers_count, clubs_titles, best_time_link]
+    except asyncio.TimeoutError:
+        print(f"Таймаут при запросе данных профиля для URL: {url}")
+        return None
+    except Exception as e:
+        print(f"Ошибка при парсинге данных профиля с URL {url}: {e}")
+        return None
 
 async def gather_profiles_data(urls, df_runners):
     async with aiohttp.ClientSession() as session:
