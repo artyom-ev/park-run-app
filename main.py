@@ -2,28 +2,28 @@ import streamlit as st
 
 # --- PAGE SETUP ---
 about_page = st.Page(
-    'pages/about.py',
+    'pages_dir/about.py',
     title='Домашняя страница',
     icon='🏡',
     default=True,
 )
 page_0 = st.Page(
-    'pages/main_table.py',
+    'pages_dir/main_table.py',
     title='Основная таблица',
     icon='📝',
 )
 page_1 = st.Page(
-    'pages/records_table.py',
+    'pages_dir/records_table.py',
     title='Таблица рекордов',
     icon='✨',
 )
 page_2 = st.Page(
-    'pages/runs_table.py',
+    'pages_dir/runs_table.py',
     title='Таблица пробегов',
     icon='🏃‍♀️',
 )
 page_3 = st.Page(
-    'pages/orgs_table.py',
+    'pages_dir/orgs_table.py',
     title='Таблица организаторов',
     icon='💃',
 )
