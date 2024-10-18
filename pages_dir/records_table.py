@@ -8,7 +8,7 @@ st.set_page_config(layout='wide', initial_sidebar_state='collapsed')
 engine = create_engine('sqlite:///mydatabase.db')
 
 # Заголовок
-st.title('Таблицы по новичкам, рекордсменам и вступившим в клубы 10/20/50/100')
+st.title('Таблицы по новичкам, рекордсменам и вступившим в клубы 10/25/50/100')
 
 st.header('Таблица для сверки результатов')
 
@@ -21,8 +21,8 @@ SELECT
     achievements
 FROM runners
 WHERE (
-    finishes IN ('10 финишей', '20 финишей', '50 финишей', '100 финишей')
-    OR volunteers IN ('10 волонтёрств', '20 волонтёрств', '50 волонтёрств', '100 волонтёрств')
+    finishes IN ('10 финишей', '25 финишей', '50 финишей', '100 финишей')
+    OR volunteers IN ('10 волонтёрств', '25 волонтёрств', '50 волонтёрств', '100 волонтёрств')
     OR (achievements IS NOT NULL AND TRIM(achievements) != '')
 )
 AND run_date = (
@@ -143,7 +143,7 @@ FROM (
         finishes
     FROM runners
     WHERE 
-        finishes IN ('10 финишей', '20 финишей', '50 финишей', '100 финишей')
+        finishes IN ('10 финишей', '25 финишей', '50 финишей', '100 финишей')
         AND run_date = (SELECT MAX(run_date) FROM runners)
 ) p
 LEFT JOIN ranked_runs rr1
@@ -192,10 +192,10 @@ FROM (
         profile_link,
         name,
         volunteers
-    FROM runners
+    FROM organizers
     WHERE 
-        volunteers IN ('10 волонтёрств', '20 волонтёрств', '50 волонтёрств', '100 волонтёрств')
-        AND run_date = (SELECT MAX(run_date) FROM runners)
+        volunteers IN ('10 волонтёрств', '25 волонтёрств', '50 волонтёрств', '100 волонтёрств')
+        AND run_date = (SELECT MAX(run_date) FROM organizers)
 ) p
 LEFT JOIN ranked_runs rr1
     ON p.name = rr1.name AND rr1.run_rank = 1

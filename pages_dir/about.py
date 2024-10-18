@@ -21,7 +21,7 @@ st.set_page_config(page_title='PARK🌳RUN', page_icon=':running:')
 image_path = 'logo.jpg'
 
 # Вставка изображения
-st.image(image_path, caption='', width=250)
+st.image(image_path, caption='')
 
 # Скрытие футера и меню
 hide_streamlit_style = """
