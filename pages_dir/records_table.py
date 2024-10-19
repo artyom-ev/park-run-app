@@ -8,22 +8,94 @@ st.set_page_config(layout='wide', initial_sidebar_state='collapsed')
 engine = create_engine('sqlite:///mydatabase.db')
 
 # Заголовок
-st.title('Таблицы по новичкам, рекордсменам и вступившим в клубы 10/25/50/100')
+st.title('Таблицы по рекордсменам, новичкам и вступившим в клубы 10/25/50/100')
 
-st.header('Таблица для сверки результатов')
+# st.header('Таблица для сверки результатов')
+
+# querie = '''
+# SELECT 
+#     profile_link,
+#     name,
+#     finishes,
+#     volunteers,
+#     achievements
+# FROM runners
+# WHERE (
+#     finishes IN ('10 финишей', '25 финишей', '50 финишей', '100 финишей')
+#     OR volunteers IN ('10 волонтёрств', '25 волонтёрств', '50 волонтёрств', '100 волонтёрств')
+#     OR (achievements IS NOT NULL AND TRIM(achievements) != '')
+# )
+# AND run_date = (
+#     SELECT MAX(run_date)
+#     FROM runners
+# );
+# '''
+
+# df = pd.read_sql(querie, con=engine)
+
+# # Отображаем таблицу
+# st.data_editor(
+#     df,
+#     column_config={
+#         'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='medium'),
+#         'name': st.column_config.Column(label="Участник", width='large'), 
+#         'finishes': st.column_config.Column(label="# финишей", width='medium'),
+#         'volunteers': st.column_config.Column(label="# волонтерств", width='medium'),
+#         'achievements': st.column_config.Column(label="Достижения", width='large'),
+#     },
+#     hide_index=True
+# )
+
+st.header('Рекорды')
 
 querie = '''
 SELECT 
     profile_link,
     name,
-    finishes,
-    volunteers,
-    achievements
+    time
+    --finishes,
+    --volunteers,
+    --achievements
 FROM runners
 WHERE (
-    finishes IN ('10 финишей', '25 финишей', '50 финишей', '100 финишей')
-    OR volunteers IN ('10 волонтёрств', '25 волонтёрств', '50 волонтёрств', '100 волонтёрств')
-    OR (achievements IS NOT NULL AND TRIM(achievements) != '')
+achievements LIKE '%Личный рекорд!%' 
+)
+AND run_date = (
+    SELECT MAX(run_date)
+    FROM runners
+);
+'''
+
+df = pd.read_sql(querie, con=engine)
+
+# Отображаем таблицу
+st.data_editor(
+    df,
+    column_config={
+        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='medium'),
+        'name': st.column_config.Column(label="Участник", width='large'), 
+        'time': st.column_config.Column(label="Время", width='large'), 
+        'finishes': st.column_config.Column(label="# финишей", width='medium'),
+        'volunteers': st.column_config.Column(label="# волонтерств", width='medium'),
+        'achievements': st.column_config.Column(label="Достижения", width='large'),
+    },
+    hide_index=True
+)
+
+# st.write(df['name'].unique())
+
+st.header('Первый финиш на 5 верст')
+
+querie = '''
+SELECT 
+    profile_link,
+    name
+    --finishes,
+    --volunteers,
+    --achievements
+FROM runners
+WHERE (
+achievements LIKE '%Первый финиш на 5 вёрст%'
 )
 AND run_date = (
     SELECT MAX(run_date)
@@ -46,8 +118,7 @@ st.data_editor(
     hide_index=True
 )
 
-
-st.header('Таблица новичков')
+st.header('Первый финиш в Петергофе')
 
 querie = '''
 SELECT 
@@ -81,43 +152,7 @@ st.data_editor(
     hide_index=True
 )
 
-
-st.header('Таблица рекордсменов')
-
-querie = '''
-SELECT 
-    profile_link,
-    name
-    --finishes,
-    --volunteers,
-    --achievements
-FROM runners
-WHERE (
-achievements LIKE '%Личный рекорд!%' 
-)
-AND run_date = (
-    SELECT MAX(run_date)
-    FROM runners
-);
-'''
-
-df = pd.read_sql(querie, con=engine)
-
-# Отображаем таблицу
-st.data_editor(
-    df,
-    column_config={
-        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='medium'),
-        'name': st.column_config.Column(label="Участник", width='large'), 
-        'finishes': st.column_config.Column(label="# финишей", width='medium'),
-        'volunteers': st.column_config.Column(label="# волонтерств", width='medium'),
-        'achievements': st.column_config.Column(label="Достижения", width='large'),
-    },
-    hide_index=True
-)
-
-
-st.header('Таблица втупивших в клубы пробегов')
+st.header('Втупившие в клубы пробегов')
 
 querie = '''
 WITH ranked_runs AS (
@@ -168,7 +203,7 @@ st.data_editor(
 )
 
 
-st.header('Таблица втупивших в клубы волонтёрств')
+st.header('Втупившие в клубы волонтёрств')
 
 querie = '''
 WITH ranked_runs AS (
