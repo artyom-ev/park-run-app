@@ -138,6 +138,7 @@ async def parse_participant_and_volunteer_tables(session, run_protocol_link, run
             position = cells[0].get_text(strip=True)
             name_tag = cells[1].find('a')
             name = name_tag.get_text(strip=True) if name_tag else '—'
+            name_lc = name.lower()
             profile_link = name_tag['href'] if name_tag else '—'
             participant_id = profile_link.split('/')[-1] if profile_link != '—' else '—'
             stats_div = cells[1].find('div', class_='user-stat')
@@ -160,7 +161,7 @@ async def parse_participant_and_volunteer_tables(session, run_protocol_link, run
                 for icon in achievement_icons:
                     achievements.append(icon['title'])
             participants_data.append([location_name, number, date_cell, link, finishers, volunteer_count, avg_time, best_female_time, best_male_time,
-                                      position, name, profile_link, participant_id, clubs, finishes, volunteers, age_group, age_grade, time, ', '.join(achievements)])
+                                      position, name, name_lc, profile_link, participant_id, clubs, finishes, volunteers, age_group, age_grade, time, ', '.join(achievements)])
             
     # Парсим волонтёров
     volunteer_table = all_tables[1]
@@ -169,6 +170,7 @@ async def parse_participant_and_volunteer_tables(session, run_protocol_link, run
         if len(columns) > 1:
             name_tag = columns[0].find('a')
             name = name_tag.get_text(strip=True) if name_tag else '—'
+            name_lc = name.lower()
             profile_link = name_tag['href'] if name_tag else '—'
             participant_id = profile_link.split('/')[-1] if profile_link != '—' else '—'
             stats_div = columns[0].find('div', class_='user-stat')
@@ -190,7 +192,7 @@ async def parse_participant_and_volunteer_tables(session, run_protocol_link, run
                 first_volunteer_info = '—'
                 volunteer_role = '—'
             volunteers_data.append([location_name, number, date_cell, link, finishers, volunteer_count, avg_time, best_female_time, best_male_time,
-                                    name, profile_link, participant_id, finishes, volunteers, clubs, volunteer_role, first_volunteer_info])
+                                    name, name_lc, profile_link, participant_id, finishes, volunteers, clubs, volunteer_role, first_volunteer_info])
     
     return participants_data, volunteers_data
 
@@ -295,12 +297,13 @@ async def get_all_stats_data(df_runners):
             if parsed_data:  # Если данные были успешно получены
                 runner_row = df_runners[df_runners['profile_link'] == link].iloc[0]
                 name = runner_row['name']
+                name_lc = runner_row['name_lc']
                 profile_link = runner_row['profile_link']
                 participant_id = runner_row['participant_id']
 
                 # Добавляем данные в общий список, включая данные из таблицы df_runners
                 for data in parsed_data:
-                    all_stats_data.append([name, profile_link, participant_id] + data)
+                    all_stats_data.append([name, name_lc, profile_link, participant_id] + data)
 
     # Возвращаем итоговый список данных
     return all_stats_data
@@ -328,7 +331,7 @@ async def update_data():
     # Создаём DataFrame для бегунов
     df_runners = pd.DataFrame(all_participant_data, columns=[
         'run', 'run_number', 'run_date', 'run_link', 'finisher', 'volunteer', 'avg_time',
-        'best_female_time', 'best_male_time', 'position', 'name', 'profile_link',
+        'best_female_time', 'best_male_time', 'position', 'name', 'name_lc', 'profile_link',
         'participant_id', 'clubs', 'finishes', 'volunteers', 'age_group', 'age_grade',
         'time', 'achievements'
     ])
@@ -337,7 +340,7 @@ async def update_data():
     # Создаём DataFrame для волонтёров
     df_orgs = pd.DataFrame(all_volunteer_data, columns=[
         'run', 'run_number', 'run_date', 'run_link', 'finisher', 'volunteer', 'avg_time',
-        'best_female_time', 'best_male_time', 'name', 'profile_link', 'participant_id',
+        'best_female_time', 'best_male_time', 'name', 'name_lc', 'profile_link', 'participant_id',
         'finishes', 'volunteers', 'clubs', 'volunteer_role', 'first_volunteer_info'
     ])
     df_orgs = (
@@ -352,7 +355,7 @@ async def update_data():
 
     # Создаём DataFrame для итоговой статистики
     df_stats = pd.DataFrame(all_stats_data, columns=[
-        'name', 'profile_link', 'participant_id', 'best_time', 'finishes', 
+        'name', 'name_lc', 'profile_link', 'participant_id', 'best_time', 'finishes', 
         'peterhof_finishes_count', 'volunteers', 'peterhof_volunteers_count', 
         'clubs_titles', 'best_time_link'
     ])
@@ -442,12 +445,21 @@ search_query = st.text_input("Введите имя или фамилию:")
 
 if search_query:
     # Очистка ввода
-    words = ' '.join(search_query.strip().split())
+    words = ' '.join(search_query.strip().split()).lower()
     # st.write(f'Поисковые слова: {words}')
 
     # Формируем условия поиска
-    conditions = " OR ".join([f"name LIKE :word{i}" for i in range(len(words.split()))])
-    sql_query = text(f"SELECT * FROM runners WHERE {conditions}")
+    conditions = " OR ".join([f"name_lc LIKE :word{i}" for i in range(len(words.lower().split()))])
+    sql_query = text(f'''SELECT profile_link, 
+                                name, 
+                                best_time, 
+                                finishes, 
+                                peterhof_finishes_count, 
+                                volunteers, 
+                                peterhof_volunteers_count, 
+                                clubs_titles 
+                     FROM users 
+                     WHERE {conditions}''')
     params = {f"word{i}": f"%{word}%" for i, word in enumerate(words.split())}
 
     # st.write(f'SQL запрос: {sql_query}')
@@ -460,7 +472,22 @@ if search_query:
         if result:
             # Преобразуем результат в DataFrame
             df_results = pd.DataFrame(result)
-            st.dataframe(df_results)
+            with st.container():
+                st.data_editor(
+                    df_results,
+                    column_config={
+                        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='100px'),
+                        'name': st.column_config.Column(label="volunteersУчастник", width='large'), 
+                        'best_time': st.column_config.Column(label="Лучшее время", width='100px'),
+                        'finishes': st.column_config.Column(label="# финишей", width='100px'),
+                        'peterhof_finishes_count': st.column_config.Column(label="# финишей в Петергофе", width='150px'),
+                        'volunteers': st.column_config.Column(label="# волонтерств", width='120px'),
+                        'peterhof_volunteers_count': st.column_config.Column(label="# волонтерств в Петергофе", width='150px'),
+                        'clubs_titles': st.column_config.Column(label="Клубы", width='large'),
+                    },
+                    hide_index=True,
+                    key="custom_table"
+                )
         else:
             st.write("Нет результатов по вашему запросу.")
     
