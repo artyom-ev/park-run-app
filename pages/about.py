@@ -9,6 +9,7 @@ import aiohttp
 import asyncio
 from aiohttp import ClientTimeout
 from asyncio import Semaphore
+from menu import menu
 
 #####################################################################################################################################################
 # Настройка страницы
@@ -16,6 +17,8 @@ from asyncio import Semaphore
 
 # Конфигурация страницы
 st.set_page_config(page_title='Duck🌳Run', page_icon=':running:')
+
+menu()
 
 # Путь к изображению
 image_path = 'logo.jpg'

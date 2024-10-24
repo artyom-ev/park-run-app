@@ -1,8 +1,11 @@
 import pandas as pd
 from sqlalchemy import create_engine, text
 import streamlit as st
+from menu import menu
 
 st.set_page_config(layout='wide', initial_sidebar_state='collapsed')
+
+menu()
 
 st.header('База участников 5Верст в Петергофе')
 

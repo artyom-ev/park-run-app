@@ -1,9 +1,12 @@
 import pandas as pd
 from sqlalchemy import create_engine
 import streamlit as st
+from menu import menu
 
 # Установка конфигурации страницы
 st.set_page_config(layout='wide', initial_sidebar_state='collapsed')
+
+menu()
 
 engine = create_engine('sqlite:///mydatabase.db')
 

@@ -1,6 +1,8 @@
 import streamlit as st
 
-# # --- PAGE SETUP ---
+st.switch_page('pages/about.py')  # for stramlit 1.32 - to work on iphone with old ios 
+                 
+# # --- PAGE SETUP --- not working in streamlit 1.32.0
 # about_page = st.Page(
 #     'pages_dir/about.py',
 #     title='Домашняя страница',
@@ -33,32 +35,3 @@ import streamlit as st
  
 # # --- RUN NAVIGATION ---
 # pg.run()
-
-menu = st.popover("🧭 Menu")
-
-menu.page_link(
-  'pages/about.py', 
-  label="Home", 
-  icon="🏠", 
-  use_container_width=True
-)
-
-# menu.page_link(
-#   "pages/0_Mobile.py", 
-#   label="Mobile App", 
-#   icon="📱", 
-#   use_container_width=True
-# )
-
-# menu.page_link(
-#   "pages/1_Main.py", 
-#   label="Desktop App", 
-#   icon="🖥️", 
-#   use_container_width=True
-# )
-
-# menu.page_link(
-#   "pages/6_Dev_Page.py", 
-#   label="Dev Page", 
-#   icon="💻", 
-#   use_container_width=True
