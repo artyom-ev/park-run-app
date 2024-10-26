@@ -277,12 +277,14 @@ async def parse_participant_page(participant_link, session, semaphore):
     return stats_data
 
 # Основная функция для сбора данных
-async def get_all_stats_data(df_runners):
+async def get_all_stats_data(df_runners, df_orgs):
     # Инициализируем список для хранения данных
     all_stats_data = []
+    run_links = df_runners['profile_link']
+    org_links = df_orgs['profile_link']  # нужно искать не только по бегунам, но и по волонтерам. 
 
     # Пройдемся по каждому уникальному участнику
-    unique_links = [link for link in df_runners['profile_link'].unique() if '5verst.ru/userstats' in link]
+    unique_links = [link for link in pd.concat([run_links, org_links]).unique() if '5verst.ru/userstats' in link]
 
     semaphore = Semaphore(MAX_CONCURRENT_REQUESTS)  # Ограничение на количество параллельных запросов
 
@@ -297,11 +299,15 @@ async def get_all_stats_data(df_runners):
         # Собираем результат
         for link, parsed_data in zip(unique_links, results):
             if parsed_data:  # Если данные были успешно получены
-                runner_row = df_runners[df_runners['profile_link'] == link].iloc[0]
-                name = runner_row['name']
-                name_lc = runner_row['name_lc']
-                profile_link = runner_row['profile_link']
-                participant_id = runner_row['participant_id']
+                try:
+                    participant_row = df_runners[df_runners['profile_link'] == link].iloc[0]
+                except IndexError:
+                    participant_row = df_orgs[df_orgs['profile_link'] == link].iloc[0] # если участник только в волонтерах
+
+                name = participant_row['name']
+                name_lc = participant_row['name_lc']
+                profile_link = participant_row['profile_link']
+                participant_id = participant_row['participant_id']
 
                 # Добавляем данные в общий список, включая данные из таблицы df_runners
                 for data in parsed_data:
@@ -353,7 +359,7 @@ async def update_data():
     df_orgs['run_date'] = pd.to_datetime(df_orgs['run_date'], dayfirst=True)
 
     # Получаем статистические данные
-    all_stats_data = await get_all_stats_data(df_runners)
+    all_stats_data = await get_all_stats_data(df_runners, df_orgs)
 
     # Создаём DataFrame для итоговой статистики
     df_stats = pd.DataFrame(all_stats_data, columns=[

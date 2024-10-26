@@ -126,8 +126,8 @@ st.header('Первый финиш в Петергофе')
 querie = '''
 SELECT 
     profile_link,
-    name
-    --finishes,
+    name,
+    finishes
     --volunteers,
     --achievements
 FROM runners
@@ -155,7 +155,66 @@ st.data_editor(
     hide_index=True
 )
 
-st.header('Втупившие в клубы пробегов')
+st.header('Первое волонтерство на 5 верст')
+
+querie = '''
+SELECT 
+profile_link,
+name
+FROM organizers
+WHERE volunteers = "1 волонтёрство"
+AND run_date = (
+    SELECT MAX(run_date)
+    FROM organizers
+);
+'''
+
+df = pd.read_sql(querie, con=engine)
+
+# Отображаем таблицу
+st.data_editor(
+    df,
+    column_config={
+        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='medium'),
+        'name': st.column_config.Column(label="Участник", width='large'), 
+        # 'finishes': st.column_config.Column(label="# финишей", width='medium'),
+        # 'volunteers': st.column_config.Column(label="# волонтерств", width='medium'),
+        # 'achievements': st.column_config.Column(label="Достижения", width='large'),
+    },
+    hide_index=True
+)
+
+# Сделать - первое волонтерство в Петергофе
+st.header('Первое волонтерство в Петергофе')
+
+querie = '''
+SELECT 
+u.profile_link, u.name, u.volunteers
+FROM organizers o
+JOIN users u on u.profile_link = o.profile_link
+WHERE u.peterhof_volunteers_count = 1 
+AND o.run_date = (
+    SELECT MAX(o1.run_date)
+    FROM organizers o1)
+AND NOT o.volunteers = "1 волонтёрство"
+;
+'''
+
+df = pd.read_sql(querie, con=engine)
+
+# Отображаем таблицу
+st.data_editor(
+    df,
+    column_config={
+        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='medium'),
+        'name': st.column_config.Column(label="Участник", width='large'), 
+        # 'finishes': st.column_config.Column(label="# финишей", width='medium'),
+        'volunteers': st.column_config.Column(label="# волонтерств", width='medium'),
+        # 'achievements': st.column_config.Column(label="Достижения", width='large'),
+    },
+    hide_index=True
+)
+st.header('Вступившие в клубы пробегов')
 
 querie = '''
 WITH ranked_runs AS (
@@ -206,7 +265,7 @@ st.data_editor(
 )
 
 
-st.header('Втупившие в клубы волонтёрств')
+st.header('Вступившие в клубы волонтёрств')
 
 querie = '''
 WITH ranked_runs AS (
