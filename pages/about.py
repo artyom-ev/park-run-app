@@ -440,7 +440,7 @@ with col2:
 # Поиск по имени
 #####################################################################################################################################################
 def go_search_by_role(option, engine):
-    sql_query = text(f'''SELECT name, volunteer_role, COUNT(*) as number, profile_link
+    sql_query = text(f'''SELECT name, COUNT(*) as number, volunteer_role, profile_link
                         FROM organizers
                         WHERE volunteer_role LIKE "%{option}%"
                         GROUP BY profile_link;
@@ -461,7 +461,7 @@ def go_search_by_role(option, engine):
                         # 'finishes': st.column_config.Column(label="# финишей", width='100px'),
                         # 'peterhof_finishes_count': st.column_config.Column(label="# финишей в Петергофе", width='150px'),
                         'volunteer_role': st.column_config.Column(label="Роль", width='medium'),
-                        'number': st.column_config.Column(label="Количество", width='120px'),
+                        'number': st.column_config.Column(label="#", width='small'),
                         # 'peterhof_volunteers_count': st.column_config.Column(label="# волонтерств в Петергофе", width='150px'),
                         # 'clubs_titles': st.column_config.Column(label="Клубы", width='large'),
                     },
@@ -511,7 +511,7 @@ def go_search_by_name(search_query, engine):
                     df_results,
                     column_config={
                         'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='100px'),
-                        'name': st.column_config.Column(label="Имя", width='large'), 
+                        'name': st.column_config.Column(label="Имя", width='120px'), 
                         'best_time': st.column_config.Column(label="Лучшее время", width='100px'),
                         'finishes': st.column_config.Column(label="# финишей", width='100px'),
                         'peterhof_finishes_count': st.column_config.Column(label="# финишей в Петергофе", width='150px'),
