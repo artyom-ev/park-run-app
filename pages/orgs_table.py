@@ -18,7 +18,8 @@ df['run_date'] = pd.to_datetime(df['run_date'])
 df['run_date'] = df['run_date'].dt.strftime('%d.%m.%Y')
 
 st.write(f'Всего событий {len(df)}')
-st.write(f'Уникальных участников {len(df['participant_id'].unique())}')
+unique_orgs_number = len(df['participant_id'].unique())
+st.write(f'Уникальных участников {unique_orgs_number}')
 
 # Отображаем таблицу 
 st.data_editor(
@@ -28,3 +29,10 @@ st.data_editor(
     },
     hide_index=True
 )
+
+array_of_roles = df['volunteer_role'].unique()
+roles = [role.split(', ') for role in array_of_roles]
+unique_roles = []
+for role in roles:
+    unique_roles.extend(role)
+st.write(sorted(set(unique_roles)))

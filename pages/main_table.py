@@ -16,13 +16,17 @@ SELECT profile_link, name, best_time, finishes,
         peterhof_finishes_count, volunteers, peterhof_volunteers_count, clubs_titles
 FROM users
 '''
+# querie = '''
+# SELECT *
+# FROM users
+# '''
 df = pd.read_sql(querie, con=engine)
 
 st.markdown(f'''
             Уникальных участников в таблице {len(df)}  
             ''')
 
-# # Отображаем таблицу 
+# # Отображаем таблицу
 # st.data_editor(
 #     df,
 #     column_config={

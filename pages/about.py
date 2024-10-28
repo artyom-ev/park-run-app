@@ -439,23 +439,49 @@ with col2:
 #####################################################################################################################################################
 # Поиск по имени
 #####################################################################################################################################################
+def go_search_by_role(option, engine):
+    sql_query = text(f'''SELECT name, volunteer_role, COUNT(*) as number, profile_link
+                        FROM organizers
+                        WHERE volunteer_role LIKE "%{option}%"
+                        GROUP BY profile_link;
+                     ''')
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(sql_query).fetchall()
 
-st.divider()
+        if result:
+            df_results = pd.DataFrame(result)
+            with st.container():
+                st.data_editor(
+                    df_results,
+                    column_config={
+                        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='100px'),
+                        'name': st.column_config.Column(label="Имя", width='120px'), 
+                        # 'best_time': st.column_config.Column(label="Лучшее время", width='100px'),
+                        # 'finishes': st.column_config.Column(label="# финишей", width='100px'),
+                        # 'peterhof_finishes_count': st.column_config.Column(label="# финишей в Петергофе", width='150px'),
+                        'volunteer_role': st.column_config.Column(label="Роль", width='medium'),
+                        'number': st.column_config.Column(label="Количество", width='120px'),
+                        # 'peterhof_volunteers_count': st.column_config.Column(label="# волонтерств в Петергофе", width='150px'),
+                        # 'clubs_titles': st.column_config.Column(label="Клубы", width='large'),
+                    },
+                    hide_index=True,
+                    key="roles"
+                )
+        else:
+            st.write("Нет результатов по вашему запросу.")
 
-st.subheader('Поиск участника:')
+    except Exception as e:
+        st.write(f"Ошибка {e}")
 
-# Подключение к базе данных
-db_url = 'sqlite:///mydatabase.db'
-engine = create_engine(db_url)
 
-# Поле для ввода поискового запроса
-search_query = st.text_input("Введите имя или фамилию:")
-
-if search_query:
+def go_search_by_name(search_query, engine):
     # Очистка ввода
     words = ' '.join(search_query.strip().split()).lower()
-    # st.write(f'Поисковые слова: {words}')
+    if not words: 
+        return
 
+    # st.write(f'Поисковые слова: {words}')
     # Формируем условия поиска
     conditions = " OR ".join([f"name_lc LIKE :word{i}" for i in range(len(words.lower().split()))])
     sql_query = text(f'''SELECT profile_link, 
@@ -466,8 +492,8 @@ if search_query:
                                 volunteers, 
                                 peterhof_volunteers_count, 
                                 clubs_titles 
-                     FROM users 
-                     WHERE {conditions}''')
+                    FROM users 
+                    WHERE {conditions}''')
     params = {f"word{i}": f"%{word}%" for i, word in enumerate(words.split())}
 
     # st.write(f'SQL запрос: {sql_query}')
@@ -485,7 +511,7 @@ if search_query:
                     df_results,
                     column_config={
                         'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='100px'),
-                        'name': st.column_config.Column(label="volunteersУчастник", width='large'), 
+                        'name': st.column_config.Column(label="Имя", width='large'), 
                         'best_time': st.column_config.Column(label="Лучшее время", width='100px'),
                         'finishes': st.column_config.Column(label="# финишей", width='100px'),
                         'peterhof_finishes_count': st.column_config.Column(label="# финишей в Петергофе", width='150px'),
@@ -498,6 +524,53 @@ if search_query:
                 )
         else:
             st.write("Нет результатов по вашему запросу.")
-    
+
     except Exception as e:
         st.write(f"Произошла ошибка: {e}")
+
+def show_search(db_url):
+    # Подключение к базе данных
+    # db_url = 'sqlite:///mydatabase.db'
+    engine = create_engine(db_url)
+
+    querie = '''
+    SELECT volunteer_role
+    FROM organizers
+    '''
+    df = pd.read_sql(querie, con=engine)
+    array_of_roles = df['volunteer_role'].unique()
+    roles = [role.split(', ') for role in array_of_roles]
+    unique_roles = []
+    for role in roles:
+        unique_roles.extend(role)
+    
+    st.divider()
+
+    st.subheader('Поиск по волонтерской роли:')
+
+    option = st.selectbox(
+    "Поиск по волонтерской роли",
+    options=sorted(set(unique_roles)),
+    index=None,
+    placeholder="Выберите роль",
+    label_visibility='collapsed'
+    )
+
+    if option:
+        go_search_by_role(option, engine)
+
+    st.divider()
+
+    st.subheader('Поиск участника по имени:')
+
+    # Поле для ввода поискового запроса
+    search_query = st.text_input("Введите имя или фамилию:")
+
+    if search_query:
+        go_search_by_name(search_query, engine)
+
+db_url='sqlite:///mydatabase.db'
+db_path = db_url.replace('sqlite:///', '')  # Извлекаем путь к файлу базы данных
+
+if os.path.exists(db_path):
+    show_search(db_url)
