@@ -443,7 +443,11 @@ with col2:
 # Поиск по имени
 #####################################################################################################################################################
 def go_search_by_role(option, engine):
-    sql_query = text(f'''SELECT name, COUNT(*) as number, volunteer_role, profile_link
+    sql_query = text(f'''SELECT name, 
+                                COUNT(*) as number, 
+                                volunteer_role, 
+                                MAX(run_date) as last_date_of_role,
+                                profile_link
                         FROM organizers
                         WHERE volunteer_role LIKE "%{option}%"
                         GROUP BY profile_link;
@@ -454,6 +458,8 @@ def go_search_by_role(option, engine):
 
         if result:
             df_results = pd.DataFrame(result)
+            df_results['last_date_of_role'] = pd.to_datetime(df_results['last_date_of_role']).dt.date
+
             with st.container():
                 st.data_editor(
                     df_results,
@@ -465,6 +471,7 @@ def go_search_by_role(option, engine):
                         # 'peterhof_finishes_count': st.column_config.Column(label="# финишей в Петергофе", width='150px'),
                         'volunteer_role': st.column_config.Column(label="Роль", width='medium'),
                         'number': st.column_config.Column(label="#", width='small'),
+                        'last_date_of_role': st.column_config.Column(label="Последняя дата", width='medium'),
                         # 'peterhof_volunteers_count': st.column_config.Column(label="# волонтерств в Петергофе", width='150px'),
                         # 'clubs_titles': st.column_config.Column(label="Клубы", width='large'),
                     },
