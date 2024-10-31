@@ -380,11 +380,14 @@ def get_last_date_from_site():
     url = 'https://5verst.ru/petergofaleksandriysky/results/all/'
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
-    last_date = soup.find_all('table')[0].find_all('tr')[1].find_all('td')[1].text.strip()
+    cell_date = soup.find_all('table')[0].find_all('tr')[1].find_all('td')[1]
+    last_date = cell_date.text.strip()
+    link = cell_date.find('a')['href']
+    print(link)
 
     # Преобразование last_date из формата DD.MM.YYYY в объект datetime
     last_date_site = datetime.strptime(last_date, '%d.%m.%Y').date()
-    return last_date_site
+    return last_date_site, link
 
 # Функция для получения последней даты из БД
 def get_last_date_from_db(db_url='sqlite:///mydatabase.db'):
@@ -397,7 +400,7 @@ def get_last_date_from_db(db_url='sqlite:///mydatabase.db'):
     # Подключение к базе данных, если файл существует
     engine = create_engine(db_url)
     with engine.connect() as connection:
-        query = text("SELECT MAX(run_date) FROM runners")  # Заменить run_date на реальное имя колонки с датой
+        query = text("SELECT MAX(run_date) FROM runners;")  # Заменить run_date на реальное имя колонки с датой
         result = connection.execute(query)
         last_date_db = result.scalar()
 
@@ -409,7 +412,7 @@ def get_last_date_from_db(db_url='sqlite:///mydatabase.db'):
     return last_date_db
 
 
-last_date_site = get_last_date_from_site()
+last_date_site, last_results_link = get_last_date_from_site()
 last_date_db = get_last_date_from_db()
     
 with col2:
@@ -424,8 +427,8 @@ with col2:
     else:
         # Сравнение дат
         if last_date_db != last_date_site:
-            st.write(f'Данные устарели. Дата в базе: {last_date_db}, дата на сайте: {last_date_site}.')
-            
+            st.write(f'Данные устарели. Дата в базе: {last_date_db}, дата на сайте: [{last_date_site}]({last_results_link}).')
+             
             if st.button('Обновить данные'):
                 st.write('Начинаем парсинг данных...')
                 asyncio.run(update_data())
@@ -433,7 +436,7 @@ with col2:
         else:
             st.markdown(f'''Данные актуальны 👍  
                         Последняя дата в базе данных: {last_date_db}  
-                        Последняя дата на сайте: {last_date_site}
+                        Последняя дата на сайте: [{last_date_site}]({last_results_link})
                         ''')
 
 #####################################################################################################################################################
