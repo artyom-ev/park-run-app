@@ -383,7 +383,7 @@ def get_last_date_from_site():
     cell_date = soup.find_all('table')[0].find_all('tr')[1].find_all('td')[1]
     last_date = cell_date.text.strip()
     link = cell_date.find('a')['href']
-    print(link)
+    # print(link)
 
     # Преобразование last_date из формата DD.MM.YYYY в объект datetime
     last_date_site = datetime.strptime(last_date, '%d.%m.%Y').date()
