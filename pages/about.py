@@ -567,7 +567,9 @@ def show_search(db_url):
     st.subheader('Поиск участника по имени:')
 
     # Поле для ввода поискового запроса
-    search_query = st.text_input("Введите имя или фамилию:")
+    search_query = st.text_input('Поиск по имени', 
+                                 placeholder="Введите имя или фамилию", 
+                                 label_visibility="collapsed")
 
     if search_query:
         go_search_by_name(search_query, engine)
