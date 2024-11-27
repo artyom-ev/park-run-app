@@ -55,7 +55,8 @@ querie = '''
 SELECT 
     profile_link,
     name,
-    time
+    time,
+    position
     --finishes,
     --volunteers,
     --achievements
@@ -75,9 +76,10 @@ df = pd.read_sql(querie, con=engine)
 st.data_editor(
     df,
     column_config={
-        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='medium'),
-        'name': st.column_config.Column(label="Участник", width='large'), 
-        'time': st.column_config.Column(label="Время", width='large'), 
+        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width=''),
+        'name': st.column_config.Column(label="Участник", width='medium'), 
+        'time': st.column_config.Column(label="Время", width=''), 
+        'position': st.column_config.Column(label="Позиция", width=''), 
         'finishes': st.column_config.Column(label="# финишей", width='medium'),
         'volunteers': st.column_config.Column(label="# волонтерств", width='medium'),
         'achievements': st.column_config.Column(label="Достижения", width='large'),
@@ -92,7 +94,9 @@ st.header('Первый финиш на 5 верст')
 querie = '''
 SELECT 
     profile_link,
-    name
+    name,
+    time,
+    position
     --finishes,
     --volunteers,
     --achievements
@@ -112,8 +116,10 @@ df = pd.read_sql(querie, con=engine)
 st.data_editor(
     df,
     column_config={
-        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='medium'),
-        'name': st.column_config.Column(label="Участник", width='large'), 
+        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width=''),
+        'name': st.column_config.Column(label="Участник", width='medium'), 
+        'time': st.column_config.Column(label="Время", width=''),
+        'position': st.column_config.Column(label="Позиция", width=''), 
         'finishes': st.column_config.Column(label="# финишей", width='medium'),
         'volunteers': st.column_config.Column(label="# волонтерств", width='medium'),
         'achievements': st.column_config.Column(label="Достижения", width='large'),
@@ -127,6 +133,8 @@ querie = '''
 SELECT 
     profile_link,
     name,
+    time, 
+    position,
     finishes
     --volunteers,
     --achievements
@@ -146,8 +154,10 @@ df = pd.read_sql(querie, con=engine)
 st.data_editor(
     df,
     column_config={
-        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='medium'),
-        'name': st.column_config.Column(label="Участник", width='large'), 
+        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width=''),
+        'name': st.column_config.Column(label="Участник", width='medium'), 
+        'time': st.column_config.Column(label="Время", width=''),
+        'position': st.column_config.Column(label="Позиция", width=''), 
         'finishes': st.column_config.Column(label="# финишей", width='medium'),
         'volunteers': st.column_config.Column(label="# волонтерств", width='medium'),
         'achievements': st.column_config.Column(label="Достижения", width='large'),
@@ -175,8 +185,8 @@ df = pd.read_sql(querie, con=engine)
 st.data_editor(
     df,
     column_config={
-        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='medium'),
-        'name': st.column_config.Column(label="Участник", width='large'), 
+        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width=''),
+        'name': st.column_config.Column(label="Участник", width='medium'), 
         # 'finishes': st.column_config.Column(label="# финишей", width='medium'),
         # 'volunteers': st.column_config.Column(label="# волонтерств", width='medium'),
         # 'achievements': st.column_config.Column(label="Достижения", width='large'),
@@ -184,7 +194,6 @@ st.data_editor(
     hide_index=True
 )
 
-# Сделать - первое волонтерство в Петергофе
 st.header('Первое волонтерство в Петергофе')
 
 querie = '''
@@ -206,16 +215,16 @@ df = pd.read_sql(querie, con=engine)
 st.data_editor(
     df,
     column_config={
-        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='medium'),
-        'name': st.column_config.Column(label="Участник", width='large'), 
+        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width=''),
+        'name': st.column_config.Column(label="Участник", width='medium'), 
         # 'finishes': st.column_config.Column(label="# финишей", width='medium'),
-        'volunteers': st.column_config.Column(label="# волонтерств", width='medium'),
+        'volunteers': st.column_config.Column(label="# волонтерств", width=''),
         # 'achievements': st.column_config.Column(label="Достижения", width='large'),
     },
     hide_index=True
 )
-st.header('Вступившие в клубы пробегов')
 
+st.header('Вступившие в клубы пробегов')
 querie = '''
 WITH ranked_runs AS (
   SELECT 
@@ -228,15 +237,19 @@ WITH ranked_runs AS (
 SELECT 
     p.profile_link,
     p.name,
-    p.finishes,
-    rr1.run_date AS last_date,
-    rr1.finishes AS last_finishes,
-    rr2.run_date AS second_to_last_date,
-    rr2.finishes AS second_to_last_finishes
+    p.time,
+    p.position,
+    p.finishes
+    --rr1.run_date AS last_date,
+    --rr1.finishes AS last_finishes,
+    --rr2.run_date AS second_to_last_date,
+    --rr2.finishes AS second_to_last_finishes
 FROM (
     SELECT 
         profile_link,
         name,
+        time,
+        position,
         finishes
     FROM runners
     WHERE 
@@ -255,8 +268,10 @@ df = pd.read_sql(querie, con=engine)
 st.data_editor(
     df,
     column_config={
-        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='medium'),
-        'name': st.column_config.Column(label="Участник", width='large'), 
+        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width=''),
+        'name': st.column_config.Column(label="Участник", width='medium'), 
+        'time': st.column_config.Column(label="Время", width=''),
+        'position': st.column_config.Column(label="Позиция", width=''),
         'finishes': st.column_config.Column(label="# финишей", width='medium'),
         'volunteers': st.column_config.Column(label="# волонтерств", width='medium'),
         'achievements': st.column_config.Column(label="Достижения", width='large'),
@@ -279,11 +294,11 @@ WITH ranked_runs AS (
 SELECT 
     p.profile_link,
     p.name,
-    p.volunteers,
-    rr1.run_date AS last_date,
-    rr1.volunteers AS last_volunteers,
-    rr2.run_date AS second_to_last_date,
-    rr2.volunteers AS second_to_last_volunteers
+    p.volunteers
+    --rr1.run_date AS last_date,
+    --rr1.volunteers AS last_volunteers,
+    --rr2.run_date AS second_to_last_date,
+    --rr2.volunteers AS second_to_last_volunteers
 FROM (
     SELECT 
         profile_link,
@@ -306,11 +321,11 @@ df = pd.read_sql(querie, con=engine)
 st.data_editor(
     df,
     column_config={
-        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width='medium'),
-        'name': st.column_config.Column(label="Участник", width='large'), 
-        'finishes': st.column_config.Column(label="# финишей", width='medium'),
-        'volunteers': st.column_config.Column(label="# волонтерств", width='medium'),
-        'achievements': st.column_config.Column(label="Достижения", width='large'),
+        'profile_link': st.column_config.LinkColumn(label="id 5Вёрст", display_text=r"([0-9]*)$", width=''),
+        'name': st.column_config.Column(label="Участник", width='medium'), 
+        'finishes': st.column_config.Column(label="# финишей", width=''),
+        'volunteers': st.column_config.Column(label="# волонтерств", width=''),
+        'achievements': st.column_config.Column(label="Достижения", width=''),
     },
     hide_index=True
 )
