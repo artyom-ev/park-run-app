@@ -1,19 +1,19 @@
 [tool.poetry]
-name = "park-run-app-prod"
-version = "0.1.0"
-description = ""
+name = "park-run-app"
+version = "2.1.0"
+description = "Duck Run App"
 authors = ["artyom_ev"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.9.7 || >3.9.7,<4.0"
+streamlit = "1.32.0"
 pandas = "^2.2.3"
 bs4 = "^0.0.2"
-streamlit = "1.32.0"
 requests = "^2.32.3"
-sqlalchemy = "^2.0.35"
 aiohttp = "^3.10.9"
-
+supabase = "^2.11.0"
+tqdm = "^4.67.1"
 
 [build-system]
 requires = ["poetry-core"]
